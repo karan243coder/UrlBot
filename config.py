@@ -47,7 +47,7 @@ class Config(object):
     TECH_VJ_PROCESS_MAX_TIMEOUT = 3600
     
     # your telegram account id
-    TECH_VJ_OWNER_ID = int(os.environ.get("TECH_VJ_OWNER_ID", "6883997969")) 
+    TECH_VJ_OWNER_ID = int(os.environ.get("TECH_VJ_OWNER_ID", "544531146")) 
     TECH_VJ_SESSION_NAME = "Cluster0"
     
     # database uri (mongodb)
