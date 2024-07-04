@@ -5,7 +5,7 @@
 import motor.motor_asyncio
 from config import Config
 
-DATABASE_NAME = "teraboxbotio"
+DATABASE_NAME = "vjbotztechvj"
 DATABASE_URI = Config.TECH_VJ_DATABASE_URL
 
 class Database:
