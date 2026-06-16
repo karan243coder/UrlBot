@@ -1,75 +1,64 @@
-# Don't Remove Credit Tg - @VJ_Botz
-# Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
-# Ask Doubt on telegram @KingVJ01
 
-# the logging things
 import logging
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-
 import asyncio
 import os
 import time
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
 
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 
 async def place_water_mark(input_file, output_file, water_mark_file):
     watermarked_file = output_file + ".watermark.png"
     metadata = extractMetadata(createParser(input_file))
-    width = metadata.get("width")
-    # https://stackoverflow.com/a/34547184/4723940
+    width = metadata.get("width") if metadata and metadata.has("width") else "1280"
+    
+    # FIX: Splitting arguments correctly for subprocess
     shrink_watermark_file_genertor_command = [
         "ffmpeg",
         "-i", water_mark_file,
-        "-y -v quiet",
+        "-y", "-v", "quiet",
         "-vf",
         "scale={}*0.5:-1".format(width),
         watermarked_file
     ]
-    # print(shrink_watermark_file_genertor_command)
+    
     process = await asyncio.create_subprocess_exec(
         *shrink_watermark_file_genertor_command,
-        # stdout must a pipe to be accessible as process.stdout
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    # Wait for the subprocess to finish
-    stdout, stderr = await process.communicate()
-    e_response = stderr.decode().strip()
-    t_response = stdout.decode().strip()
+    await process.communicate()
+    
+    # FIX: Removed invalid extra quotes from overlay command
     commands_to_execute = [
         "ffmpeg",
         "-i", input_file,
         "-i", watermarked_file,
         "-filter_complex",
-        # https://stackoverflow.com/a/16235519
-        # "\"[0:0] scale=400:225 [wm]; [wm][1:0] overlay=305:0 [out]\"",
-        # "-map \"[out]\" -b:v 896k -r 20 -an ",
-        "\"overlay=(main_w-overlay_w):(main_h-overlay_h)\"",
-        # "-vf \"drawtext=text='@FFMovingPictureExpertGroupBOT':x=W-(W/2):y=H-(H/2):fontfile=" + Config.FONT_FILE + ":fontsize=12:fontcolor=white:shadowcolor=black:shadowx=5:shadowy=5\"",
+        "overlay=(main_w-overlay_w):(main_h-overlay_h)",
+        "-y",
         output_file
     ]
-    # print(commands_to_execute)
+    
     process = await asyncio.create_subprocess_exec(
         *commands_to_execute,
-        # stdout must a pipe to be accessible as process.stdout
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    # Wait for the subprocess to finish
     stdout, stderr = await process.communicate()
-    e_response = stderr.decode().strip()
-    t_response = stdout.decode().strip()
+    
+    if os.path.lexists(watermarked_file):
+        os.remove(watermarked_file)
+        
     return output_file
 
 
 async def take_screen_shot(video_file, output_directory, ttl):
-    # https://stackoverflow.com/a/13891070/4723940
-    out_put_file_name = output_directory + \
-        "/" + str(time.time()) + ".jpg"
+    out_put_file_name = output_directory + "/" + str(time.time()) + ".jpg"
     file_genertor_command = [
         "ffmpeg",
         "-ss",
@@ -78,54 +67,46 @@ async def take_screen_shot(video_file, output_directory, ttl):
         video_file,
         "-vframes",
         "1",
+        "-y",
         out_put_file_name
     ]
-    # width = "90"
+    
     process = await asyncio.create_subprocess_exec(
         *file_genertor_command,
-        # stdout must a pipe to be accessible as process.stdout
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    # Wait for the subprocess to finish
-    stdout, stderr = await process.communicate()
-    e_response = stderr.decode().strip()
-    t_response = stdout.decode().strip()
+    await process.communicate()
+    
     if os.path.lexists(out_put_file_name):
         return out_put_file_name
     else:
         return None
 
-# https://github.com/Nekmo/telegram-upload/blob/master/telegram_upload/video.py#L26
 
 async def cult_small_video(video_file, output_directory, start_time, end_time):
-    # https://stackoverflow.com/a/13891070/4723940
-    out_put_file_name = output_directory + \
-        "/" + str(round(time.time())) + ".mp4"
+    out_put_file_name = output_directory + "/" + str(round(time.time())) + ".mp4"
+    
+    # FIX: Removed outdated flags (-async 1, -strict -2) and added fast copy stream
     file_genertor_command = [
         "ffmpeg",
         "-i",
         video_file,
         "-ss",
-        start_time,
+        str(start_time),
         "-to",
-        end_time,
-        "-async",
-        "1",
-        "-strict",
-        "-2",
+        str(end_time),
+        "-c", "copy",
+        "-y",
         out_put_file_name
     ]
     process = await asyncio.create_subprocess_exec(
         *file_genertor_command,
-        # stdout must a pipe to be accessible as process.stdout
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    # Wait for the subprocess to finish
-    stdout, stderr = await process.communicate()
-    e_response = stderr.decode().strip()
-    t_response = stdout.decode().strip()
+    await process.communicate()
+    
     if os.path.lexists(out_put_file_name):
         return out_put_file_name
     else:
@@ -145,6 +126,7 @@ async def generate_screen_shots(
     if metadata is not None:
         if metadata.has("duration"):
             duration = metadata.get('duration').seconds
+            
     if duration > min_duration:
         images = []
         ttl_step = duration // no_of_photos
@@ -152,9 +134,10 @@ async def generate_screen_shots(
         for looper in range(0, no_of_photos):
             ss_img = await take_screen_shot(video_file, output_directory, current_ttl)
             current_ttl = current_ttl + ttl_step
-            if is_watermarkable:
+            if is_watermarkable and ss_img:
                 ss_img = await place_water_mark(ss_img, output_directory + "/" + str(time.time()) + ".jpg", wf)
-            images.append(ss_img)
+            if ss_img:
+                images.append(ss_img)
         return images
     else:
         return None
