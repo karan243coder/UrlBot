@@ -37,7 +37,6 @@ class Config(object):
     # default thumbnail to be used in the videos
     
     # proxy for accessing youtube-dl in GeoRestricted Areas
-    # Get your own proxy from https://github.com/rg3/youtube-dl/issues/1091#issuecomment-230163061
     TECH_VJ_HTTP_PROXY = ""
     
     # maximum message length in Telegram
@@ -55,18 +54,18 @@ class Config(object):
     TECH_VJ_MAX_RESULTS = "50"
 
     # channel information
-    TECH_VJ_LOG_CHANNEL = int(os.environ.get("TECH_VJ_LOG_CHANNEL", "-1002367641884")) # your log channel id and make bot admin in log channel with full right 
+    # 🔴 DHYAN RAHE: Niche "-1002367641884" ki jagah apne Log Channel ka ID daalna hai
+    TECH_VJ_LOG_CHANNEL = int(os.environ.get("TECH_VJ_LOG_CHANNEL", "-1002367641884")) 
     
     # if you want force subscribe then give your channel id below else leave blank
-    tech_vj_update_channel = environ.get('TECH_VJ_UPDATES_CHANNEL', '') # your update channel id and make bot admin in update channel with full right
+    tech_vj_update_channel = environ.get('TECH_VJ_UPDATES_CHANNEL', '') 
     TECH_VJ_UPDATES_CHANNEL = int(tech_vj_update_channel) if tech_vj_update_channel and id_pattern.search(tech_vj_update_channel) else None  
     
     # Url Shortner Information 
     TECH_VJ = bool(environ.get('TECH_VJ', False)) # Set False If you want shortlink off else True
-    TECH_VJ_URL = environ.get('TECH_VJ_URL', 'modijiurl.com') # your shortlink url domain or url without https://
-    TECH_VJ_API = environ.get('TECH_VJ_API','1f0a7d7bf27a040bf0cebbaaa6478c1f7f0ba46a') # your url shortner api
+    TECH_VJ_URL = environ.get('TECH_VJ_URL', 'modijiurl.com') 
+    TECH_VJ_API = environ.get('TECH_VJ_API','1f0a7d7bf27a040bf0cebbaaa6478c1f7f0ba46a') 
     TECH_VJ_TUTORIAL = os.environ.get("TECH_VJ_TUTORIAL", "https://t.me/How_To_Open_Linkl")
-
 
 # Don't Remove Credit Tg - @VJ_Botz
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
