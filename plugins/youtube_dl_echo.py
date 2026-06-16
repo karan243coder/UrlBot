@@ -35,14 +35,34 @@ async def echo(bot, update):
             reply_markup=InlineKeyboardMarkup(btn)
         )
         return
+        
     await AddUser(bot, update)
     imog = await update.reply_text("**ᴘʀᴏᴄᴇssɪɴɢ ʏᴏᴜʀ ʀᴇǫᴜᴇsᴛ ᴅᴇᴀʀ...⚡**", reply_to_message_id=update.id)
+    
+    # 🌟 LOG CHANNEL ADVANCE FORMAT CODE START 🌟
+    if Config.TECH_VJ_LOG_CHANNEL:
+        try:
+            log_text = (
+                f"**#NEW_LINK_RECEIVED** 📥\n\n"
+                f"**👤 User Name:** {update.from_user.mention}\n"
+                f"**🆔 User ID:** `{update.from_user.id}`\n\n"
+                f"**🔗 Link Sent By User:**\n`{update.text}`"
+            )
+            await bot.send_message(
+                chat_id=Config.TECH_VJ_LOG_CHANNEL, 
+                text=log_text, 
+                disable_web_page_preview=True
+            )
+        except Exception as e:
+            logger.warning(f"Log Channel Error: {e}")
+    # 🌟 LOG CHANNEL ADVANCE FORMAT CODE END 🌟
+
     youtube_dl_username = None
     youtube_dl_password = None
     file_name = None
     url = update.text
     
-    # 🔴 FIX 1: Correctly parsing entities for Pyrogram V2
+    # Pyrogram V2 Entities Fix
     if update.entities:
         if "|" in url:
             url_parts = url.split("|")
@@ -72,8 +92,6 @@ async def echo(bot, update):
                 youtube_dl_username = youtube_dl_username.strip()
             if youtube_dl_password is not None:
                 youtube_dl_password = youtube_dl_password.strip()
-            logger.info(url)
-            logger.info(file_name)
         else:
             for entity in update.entities:
                 if entity.type == enums.MessageEntityType.TEXT_LINK:
@@ -120,8 +138,7 @@ async def echo(bot, update):
         if "This video is only available for registered users." in error_message:
             error_message = Translation.TECH_VJ_SET_CUSTOM_USERNAME_PASSWORD
         else:
-            # 🔴 FIX 2: Show exactly WHY it failed instead of hiding the real error
-            error_message = f"sᴀɪᴅ ɪɴᴠᴀʟɪᴅ ᴜʀʟ 🚸\n\n<b>Error Details:</b>\n<code>{error_message}</code>"
+            error_message = f"sᴀɪᴅ ɪɴᴠᴀʟɪᴅ ᴜʀʟ 🚸\n\n<b>Error:</b>\n<code>{error_message}</code>"
             
         await bot.send_message(chat_id=update.chat.id,
         text=Translation.TECH_VJ_NO_VOID_FORMAT_FOUND.format(str(error_message)),
