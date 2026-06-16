@@ -2,246 +2,247 @@
 # Subscribe YouTube Channel For Amazing Bot https://youtube.com/@Tech_VJ
 # Ask Doubt on telegram @KingVJ01
 
-import logging, requests, urllib.parse, os, time, shutil, asyncio, json, math
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logging.getLogger("pyrogram").setLevel(logging.WARNING)
-logger = logging.getLogger(__name__)
-
+import os
+import json
+import math
+import time
+import shutil
+import asyncio
+from PIL import Image
 from config import Config
-from pyrogram import filters, enums
-from database.access import techvj
+from datetime import datetime
 from translation import Translation
-from database.adduser import AddUser
-from pyrogram import Client as Tech_VJ
-from hachoir.parser import createParser
-from hachoir.metadata import extractMetadata
-from helper_funcs.display_progress import humanbytes
-from helper_funcs.help_uploadbot import DownLoadFile
-from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from helper_funcs.display_progress import progress_for_pyrogram, humanbytes, TimeFormatter
-from utils import verify_user, check_token, check_verification, get_token
+from plugins.custom_thumbnail import *
+from pyrogram import enums
+from pyrogram.types import InputMediaPhoto
+from helper_funcs.display_progress import progress_for_pyrogram, humanbytes
 
-@Tech_VJ.on_message(filters.private & ~filters.via_bot & filters.regex(pattern=".*http.*"))
-async def echo(bot, update):
-    if not await check_verification(bot, update.from_user.id) and Config.TECH_VJ == True:
-        btn = [[
-            InlineKeyboardButton("👨‍💻 ᴠᴇʀɪғʏ", url=await get_token(bot, update.from_user.id, f"https://telegram.me/{Config.TECH_VJ_BOT_USERNAME}?start="))
-            ],[
-            InlineKeyboardButton("🔻 ʜᴏᴡ ᴛᴏ ᴏᴘᴇɴ ʟɪɴᴋ ᴀɴᴅ ᴠᴇʀɪғʏ 🔺", url=f"{Config.TECH_VJ_TUTORIAL}")
-        ]]
-        await update.reply_text(
-            text="<b>ᴅᴜᴇ ᴛᴏ ᴏᴠᴇʀʟᴏᴀᴅ ᴏɴ ʙᴏᴛ ʏᴏᴜ ʜᴀᴠᴇ ᴠᴇʀɪғʏ ғɪʀsᴛ\nᴋɪɴᴅʟʏ ᴠᴇʀɪғʏ ғɪʀsᴛ\n\nɪғ ʏᴏᴜ ᴅᴏɴ'ᴛ ᴋɴᴏᴡ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪғʏ ᴛʜᴇɴ ᴛᴀᴘ ᴏɴ ʜᴏᴡ ᴛᴏ ᴏᴘᴇɴ ʟɪɴᴋ ʙᴜᴛᴛᴏɴ ᴛʜᴇɴ sᴇᴇ 60 sᴇᴄᴏɴᴅ ᴠɪᴅᴇᴏ ᴛʜᴇɴ ᴄʟɪᴄᴋ ᴏɴ ᴠᴇʀɪғʏ ʙᴜᴛᴛᴏɴ ᴀɴᴅ ᴠᴇʀɪғʏ</b>",
-            protect_content=True,
-            reply_markup=InlineKeyboardMarkup(btn)
-        )
+async def youtube_dl_call_back(bot, update):
+    try:
+        cb_data = update.data
+        tg_send_type, youtube_dl_format, youtube_dl_ext = cb_data.split("|")
+        save_ytdl_json_path = Config.TECH_VJ_DOWNLOAD_LOCATION + "/" + str(update.from_user.id) + ".json"
+        with open(save_ytdl_json_path, "r", encoding="utf8") as f:
+            response_json = json.load(f)
+    except Exception:
+        await update.message.delete(True)
         return
-    await AddUser(bot, update)
-    imog = await update.reply_text("**ᴘʀᴏᴄᴇssɪɴɢ ʏᴏᴜʀ ʀᴇǫᴜᴇsᴛ ᴅᴇᴀʀ...⚡**", reply_to_message_id=update.id)
+        
+    youtube_dl_url = update.message.reply_to_message.text
+    custom_file_name = str(response_json.get("title"))[:50] + "_" + youtube_dl_format
     youtube_dl_username = None
     youtube_dl_password = None
-    file_name = None
-    url = update.text
     
-    # 🔴 FIX 1: Correctly parsing entities for Pyrogram V2
-    if update.entities:
-        if "|" in url:
-            url_parts = url.split("|")
+    if update.message.reply_to_message.entities:
+        if "|" in youtube_dl_url:
+            url_parts = youtube_dl_url.split("|")
             if len(url_parts) == 2:
-                url = url_parts[0]
-                file_name = url_parts[1]
+                youtube_dl_url = url_parts[0]
+                custom_file_name = url_parts[1]
             elif len(url_parts) == 4:
-                url = url_parts[0]
-                file_name = url_parts[1]
+                youtube_dl_url = url_parts[0]
+                custom_file_name = url_parts[1]
                 youtube_dl_username = url_parts[2]
                 youtube_dl_password = url_parts[3]
             else:
-                for entity in update.entities:
+                for entity in update.message.reply_to_message.entities:
                     if entity.type == enums.MessageEntityType.TEXT_LINK:
-                        url = entity.url
+                        youtube_dl_url = entity.url
                         break
                     elif entity.type == enums.MessageEntityType.URL:
                         o = entity.offset
                         l = entity.length
-                        url = url[o:o + l]
+                        youtube_dl_url = youtube_dl_url[o:o + l]
                         break
-            if url is not None:
-                url = url.strip()
-            if file_name is not None:
-                file_name = file_name.strip()
+            if youtube_dl_url is not None:
+                youtube_dl_url = youtube_dl_url.strip()
+            if custom_file_name is not None:
+                custom_file_name = custom_file_name.strip()
             if youtube_dl_username is not None:
                 youtube_dl_username = youtube_dl_username.strip()
             if youtube_dl_password is not None:
                 youtube_dl_password = youtube_dl_password.strip()
-            logger.info(url)
-            logger.info(file_name)
         else:
-            for entity in update.entities:
+            for entity in update.message.reply_to_message.entities:
                 if entity.type == enums.MessageEntityType.TEXT_LINK:
-                    url = entity.url
+                    youtube_dl_url = entity.url
                     break
                 elif entity.type == enums.MessageEntityType.URL:
                     o = entity.offset
                     l = entity.length
-                    url = url[o:o + l]
+                    youtube_dl_url = youtube_dl_url[o:o + l]
                     break
-                    
-    if Config.TECH_VJ_HTTP_PROXY != "":
-        command_to_exec = [
-            "yt-dlp",
-            "--no-warnings",
-            "--youtube-skip-dash-manifest",
-            "-j",
-            url,
-            "--proxy", Config.TECH_VJ_HTTP_PROXY
-        ]
+
+    await update.message.edit(text=Translation.TECH_VJ_DOWNLOAD_START)
+    description = Translation.TECH_VJ_CUSTOM_CAPTION_UL_FILE
+    if "fulltitle" in response_json:
+        description = response_json["fulltitle"][0:1021]
+        
+    tmp_directory_for_each_user = Config.TECH_VJ_DOWNLOAD_LOCATION + "/" + str(update.from_user.id)
+    if not os.path.isdir(tmp_directory_for_each_user):
+        os.makedirs(tmp_directory_for_each_user)
+        
+    if '/' in custom_file_name:
+        file_mimx = custom_file_name
+        file_maix = file_mimx.split('/')
+        file_name = ' '.join(file_maix)
     else:
-        command_to_exec = [
-            "yt-dlp",
-            "--no-warnings",
-            "--youtube-skip-dash-manifest",
-            "-j",
-            url
-        ]
+        file_name = custom_file_name
+
+    command_to_exec = []
+    command_to_exec.append("--quiet")
+    command_to_exec.append("--no-warnings")
+    download_directory = tmp_directory_for_each_user + "/" + str(file_name) + "." + youtube_dl_ext
+    
+    if tg_send_type == "audio":
+        command_to_exec = ["yt-dlp", "-c",
+        "--prefer-ffmpeg", "--extract-audio",
+        "--audio-format", youtube_dl_ext,
+        "--audio-quality", youtube_dl_format,
+        youtube_dl_url, "-o", download_directory]
+    else:
+        minus_f_format = youtube_dl_format
+        if "youtu" in youtube_dl_url:
+            minus_f_format = youtube_dl_format + "+bestaudio"
+        command_to_exec = ["yt-dlp", "-c",
+        "--embed-subs", "-f", minus_f_format,
+        "--hls-prefer-ffmpeg", youtube_dl_url,
+        "-o", download_directory]
+
     if youtube_dl_username is not None:
         command_to_exec.append("--username")
         command_to_exec.append(youtube_dl_username)
     if youtube_dl_password is not None:
         command_to_exec.append("--password")
         command_to_exec.append(youtube_dl_password)
-        
+
+    start = datetime.now()
+    asyncio.create_task(clendir(save_ytdl_json_path))
     process = await asyncio.create_subprocess_exec(*command_to_exec,
     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     stdout, stderr = await process.communicate()
     e_response = stderr.decode().strip()
-    t_response = stdout.decode().strip()
     
-    if e_response and "nonnumeric port" not in e_response:
-        error_message = e_response.replace(Translation.TECH_VJ_ERROR_YTDLP, "")
-        if "This video is only available for registered users." in error_message:
-            error_message = Translation.TECH_VJ_SET_CUSTOM_USERNAME_PASSWORD
-        else:
-            # 🔴 FIX 2: Show exactly WHY it failed instead of hiding the real error
-            error_message = f"sᴀɪᴅ ɪɴᴠᴀʟɪᴅ ᴜʀʟ 🚸\n\n<b>Error Details:</b>\n<code>{error_message}</code>"
-            
-        await bot.send_message(chat_id=update.chat.id,
-        text=Translation.TECH_VJ_NO_VOID_FORMAT_FOUND.format(str(error_message)),
-        disable_web_page_preview=True, parse_mode=enums.ParseMode.HTML,
-        reply_to_message_id=update.id)
-        await imog.delete(True)
-        return False
+    if e_response:
+        error_msg = f"**ERROR : Download failed ⚠️**\n\n`{e_response[:200]}`"
+        await bot.edit_message_text(chat_id=update.message.chat.id,
+        message_id=update.message.id, text=error_msg)
+        return
         
-    if t_response:
-        x_reponse = t_response
-        if "\n" in x_reponse:
-            x_reponse, _ = x_reponse.split("\n", 1)
-        response_json = json.loads(x_reponse)
-        save_ytdl_json_path = Config.TECH_VJ_DOWNLOAD_LOCATION + \
-            "/" + str(update.from_user.id) + ".json"
-        with open(save_ytdl_json_path, "w", encoding="utf8") as outfile:
-            json.dump(response_json, outfile, ensure_ascii=False)
+    file_exists = False
+    for f in os.listdir(tmp_directory_for_each_user):
+        if str(file_name) in f:
+            download_directory = os.path.join(tmp_directory_for_each_user, f)
+            file_exists = True
+            break
             
-        inline_keyboard = []
-        duration = None
-        if "duration" in response_json:
-            duration = response_json["duration"]
-        if "formats" in response_json:
-            for formats in response_json["formats"]:
-                format_id = formats.get("format_id")
-                format_string = formats.get("format_note")
-                if format_string is None:
-                    format_string = formats.get("format")
-                format_ext = formats.get("ext")
-                approx_file_size = ""
-                if "filesize" in formats and formats["filesize"] is not None:
-                    approx_file_size = humanbytes(formats["filesize"])
-                cb_string_video = "{}|{}|{}".format(
-                    "video", format_id, format_ext)
-                cb_string_file = "{}|{}|{}".format(
-                    "file", format_id, format_ext)
-                if format_string is not None and not "audio only" in format_string:
-                    ikeyboard = [
-                        InlineKeyboardButton(
-                            "S " + format_string + " video " + approx_file_size + " ",
-                            callback_data=(cb_string_video).encode("UTF-8")
-                        ),
-                        InlineKeyboardButton(
-                            "D " + format_ext + " " + approx_file_size + " ",
-                            callback_data=(cb_string_file).encode("UTF-8")
-                        )
-                    ]
-                else:
-                    ikeyboard = [
-                        InlineKeyboardButton(
-                            "SVideo [] ( " + approx_file_size + " )",
-                            callback_data=(cb_string_video).encode("UTF-8")
-                        ),
-                        InlineKeyboardButton(
-                            "DFile [] ( " + approx_file_size + " )",
-                            callback_data=(cb_string_file).encode("UTF-8")
-                        )
-                    ]
-                inline_keyboard.append(ikeyboard)
-            if duration is not None:
-                cb_string_64 = "{}|{}|{}".format("audio", "64k", "mp3")
-                cb_string_128 = "{}|{}|{}".format("audio", "128k", "mp3")
-                cb_string = "{}|{}|{}".format("audio", "320k", "mp3")
-                inline_keyboard.append([
-                    InlineKeyboardButton(
-                        "MP3 (64 kbps)", callback_data=cb_string_64.encode("UTF-8")),
-                    InlineKeyboardButton(
-                        "MP3 (128 kbps)", callback_data=cb_string_128.encode("UTF-8"))
-                ])
-                inline_keyboard.append([
-                    InlineKeyboardButton(
-                        "MP3 (320 kbps)", callback_data=cb_string.encode("UTF-8"))
-                ])
-        else:
-            format_id = response_json["format_id"]
-            format_ext = response_json["ext"]
-            cb_string_file = "{}|{}|{}".format(
-                "file", format_id, format_ext)
-            cb_string_video = "{}|{}|{}".format(
-                "video", format_id, format_ext)
-            inline_keyboard.append([
-                InlineKeyboardButton(
-                    "SVideo",
-                    callback_data=(cb_string_video).encode("UTF-8")
-                ),
-                InlineKeyboardButton(
-                    "DFile",
-                    callback_data=(cb_string_file).encode("UTF-8")
-                )
-            ])
-        reply_markup = InlineKeyboardMarkup(inline_keyboard)
-        await imog.delete(True)
-        await bot.send_message(
-            chat_id=update.chat.id,
-            text=Translation.TECH_VJ_FORMAT_SELECTION + "\n" + Translation.TECH_VJ_SET_CUSTOM_USERNAME_PASSWORD,
-            reply_markup=reply_markup,
+    if not file_exists:
+        asyncio.create_task(clendir(tmp_directory_for_each_user))
+        await bot.edit_message_text(chat_id=update.message.chat.id,
+        text="**ERROR : File not found 😑. Download failed or was blocked.**", message_id=update.message.id)
+        return
+        
+    file_size, file_location = await get_flocation(download_directory, youtube_dl_ext)
+    if file_size == 0:
+        await update.message.edit(text="ERROR : File Not found 🙁")
+        asyncio.create_task(clendir(tmp_directory_for_each_user))
+        return
+        
+    await update.message.edit(text=Translation.TECH_VJ_UPLOAD_START)
+    try:
+        start_time = time.time()
+        if tg_send_type == "audio":
+            duration = await Mdata03(file_location)
+            thumbnail = await Gthumb01(bot, update)
+            await bot.send_audio(
+            chat_id=update.message.chat.id,
+            audio=file_location,
+            caption=description,
             parse_mode=enums.ParseMode.HTML,
-            reply_to_message_id=update.id
-        )
-    else:
-        inline_keyboard = []
-        cb_string_file = "{}={}={}".format(
-            "file", "LFO", "NONE")
-        cb_string_video = "{}={}={}".format(
-            "video", "OFL", "ENON")
-        inline_keyboard.append([
-            InlineKeyboardButton(
-                "SVideo",
-                callback_data=(cb_string_video).encode("UTF-8")
-            ),
-            InlineKeyboardButton(
-                "DFile",
-                callback_data=(cb_string_file).encode("UTF-8")
-            )
-        ])
-        reply_markup = InlineKeyboardMarkup(inline_keyboard)
-        await imog.delete(True)
-        await bot.send_message(
-        chat_id=update.chat.id,
-        text=Translation.TECH_VJ_FORMAT_SELECTION,
-        reply_markup=reply_markup,
-        parse_mode=enums.ParseMode.HTML,
-        reply_to_message_id=update.id)
+            duration=duration,
+            thumbnail=thumbnail,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time))
+            
+        elif tg_send_type == "file":
+            thumbnail = await Gthumb01(bot, update)
+            await bot.send_document(chat_id=update.message.chat.id,
+            document=file_location,
+            thumbnail=thumbnail,
+            caption=description,
+            parse_mode=enums.ParseMode.HTML,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time))
+            
+        elif tg_send_type == "vm":
+            width, duration = await Mdata02(file_location)
+            thumbnail = await Gthumb02(bot, update, duration, file_location)
+            await bot.send_video_note(chat_id=update.message.chat.id,
+            video_note=file_location,
+            duration=duration,
+            length=width,
+            thumbnail=thumbnail,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time))
+            
+        elif tg_send_type == "video":
+            width, height, duration = await Mdata01(file_location)
+            thumbnail = await Gthumb02(bot, update, duration, file_location)
+            await bot.send_video(chat_id=update.message.chat.id,
+            video=file_location,
+            caption=description,
+            parse_mode=enums.ParseMode.HTML,
+            duration=duration,
+            width=width,
+            height=height,
+            thumbnail=thumbnail,
+            supports_streaming=True,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START,
+            update.message, start_time) )
+            
+        else:
+            thumbnail = await Gthumb01(bot, update)
+            await bot.send_document(chat_id=update.message.chat.id,
+            document=file_location,
+            thumbnail=thumbnail,
+            caption=description,
+            parse_mode=enums.ParseMode.HTML,
+            reply_to_message_id=update.message.reply_to_message.id,
+            progress=progress_for_pyrogram,
+            progress_args=(Translation.TECH_VJ_UPLOAD_START, update.message, start_time))
+
+        asyncio.create_task(clendir(file_location))
+        if thumbnail is not None:
+            asyncio.create_task(clendir(thumbnail))
+            
+        await bot.edit_message_text(
+        text="<b>ᴜᴘʟᴏᴀᴅᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ ✔️\n\nᴊᴏɪɴ @Bimbobot69</b>",
+        chat_id=update.message.chat.id,
+        message_id=update.message.id,
+        disable_web_page_preview=True)
+        
+    except Exception as e:
+        asyncio.create_task(clendir(download_directory))
+        await bot.edit_message_text(text=Translation.TECH_VJ_ERROR.format(e),
+        chat_id=update.message.chat.id, message_id=update.message.id)
+
+#=================================
+
+async def clendir(directory):
+    if not directory:
+        return
+    try:
+        os.remove(directory)
+    except:
+        pass
+    try:
+        shutil.rmtree(directory)
+    except:
+        pass
+
+#=================================
