@@ -1,5 +1,5 @@
 numpy
-yt-dlp
+yt-dlp>=2024.03.10
 Pillow
 aiohttp
 hachoir
@@ -13,7 +13,6 @@ beautifulsoup4
 pyrogram
 datetime 
 pytz 
-requests 
 bs4 
 Flask==1.1.2
 gunicorn==20.1.0
